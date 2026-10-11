@@ -7,7 +7,6 @@ services:
       - "8000:8000"  # FastAPI Webhook API
       - "8501:8501"  # Streamlit Dashboard
     volumes:
-      # Mount the database file so scraped records persist locally
       - ./festivals.db:/app/festivals.db
     restart: unless-stopped
 
@@ -27,5 +26,16 @@ services:
       - n8n_data:/home/node/.n8n
     restart: unless-stopped
 
+  # Ollama AI
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
 volumes:
   n8n_data:
+  ollama_data:
