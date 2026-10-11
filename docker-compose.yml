@@ -1,0 +1,31 @@
+services:
+  # FestTrackAI Application (FastAPI Webhook + Streamlit UI)
+  app:
+    build: .
+    container_name: festtrackai_app
+    ports:
+      - "8000:8000"  # FastAPI Webhook API
+      - "8501:8501"  # Streamlit Dashboard
+    volumes:
+      # Mount the database file so scraped records persist locally
+      - ./festivals.db:/app/festivals.db
+    restart: unless-stopped
+
+  # n8n Automation Engine
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: festtrackai_n8n
+    ports:
+      - "5678:5678"  # n8n Web UI
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
