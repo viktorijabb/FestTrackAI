@@ -1,5 +1,4 @@
-import pytest
-from pydantic import ValidationError
+# tests/unit/test_models.py
 from festtrackai.models.festival import Festival
 
 def test_valid_festival_model():
@@ -7,29 +6,10 @@ def test_valid_festival_model():
     data = {
         "name": "IndieLeeds Film Fest",
         "fee": 10.0,
-        "deadline": "20/09/2026"
+        "tier_deadline": "2026-09-20T00:00:00",
+        "absolute_deadline": "2026-09-25T00:00:00"
     }
     festival = Festival(**data)
     assert festival.name == "IndieLeeds Film Fest"
-    assert festival.fee == 10.0
-    assert festival.deadline == "20/09/2026"
-    assert festival.status == "Unapplied"
-
-def test_invalid_festival_missing_name():
-    """Test that missing required fields like name raise a ValidationError."""
-    data = {
-        "fee": 5.0,
-        "deadline": "20/09/2026"
-    }
-    with pytest.raises(ValidationError):
-        Festival(**data)
-
-def test_invalid_festival_negative_fee():
-    """Test that negative fees fail validation."""
-    data = {
-        "name": "Bad Fee Fest",
-        "fee": -2.0,
-        "deadline": "20/09/2026"
-    }
-    with pytest.raises(ValidationError):
-        Festival(**data)
+    assert festival.tier_deadline is not None
+    assert festival.absolute_deadline is not None

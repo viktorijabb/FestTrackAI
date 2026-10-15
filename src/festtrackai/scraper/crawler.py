@@ -47,7 +47,11 @@ def fetch_filmfreeway_festivals() -> list[Festival]:
 
         try:
             # Navigate and wait for network activity to settle
-            page.goto(target_url, wait_until="networkidle", timeout=15000)
+            page.goto(
+                "https://filmfreeway.com/festivals",
+                wait_until="domcontentloaded",
+                timeout=30000
+            )
 
             # Allow extra time for dynamic elements to mount
             page.wait_for_selector(".festival-card, [data-test='festival-card'], div", timeout=10000)

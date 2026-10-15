@@ -6,8 +6,14 @@ services:
     ports:
       - "8000:8000"  # FastAPI Webhook API
       - "8501:8501"  # Streamlit Dashboard
+    command: >
+      sh -c "uv run uvicorn festtrackai.main:app --host 0.0.0.0 --port 8000 &
+             uv run streamlit run src/festtrackai/app.py --server.address=0.0.0.0 --server.port=8501"
     volumes:
-      - ./festivals.db:/app/festivals.db
+      - .:/app  # Mount project directory so code and SQLite DB persist correctly
+      - /app/.venv
+    environment:
+      - PYTHONPATH=/app/src
     restart: unless-stopped
 
   # n8n Automation Engine

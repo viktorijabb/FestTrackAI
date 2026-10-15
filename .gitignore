@@ -1,1 +1,37 @@
-.idea
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment Variables & Secrets
+.env
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS Specific
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Local Docker Data Volumes (if any local folders are mapped)
+n8n_data/
+ollama_data/
+
+# AI
+.gemini
