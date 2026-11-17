@@ -12,35 +12,60 @@ def get_connection(db_path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
 def init_db(db_path: Path | str = DEFAULT_DB_PATH) -> None:
     """Initializes the SQLite database schema with separate tier and absolute deadlines."""
     with get_connection(db_path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS festivals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
-                fee REAL NOT NULL,
+                fee REAL,
                 tier_deadline TEXT NOT NULL,
                 absolute_deadline TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'Unapplied'
             )
         """)
+        # SQLite cannot drop NOT NULL in place. Preserve IDs, status and data
+        # when upgrading the original schema to allow unknown fees.
+        columns = {row["name"]: row for row in conn.execute("PRAGMA table_info(festivals)")}
+        if columns["fee"]["notnull"]:
+            conn.execute("ALTER TABLE festivals RENAME TO festivals_legacy")
+            conn.execute("""
+                CREATE TABLE festivals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    fee REAL,
+                    tier_deadline TEXT NOT NULL,
+                    absolute_deadline TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'Unapplied'
+                )
+            """)
+            conn.execute("""INSERT INTO festivals (id, name, fee, tier_deadline, absolute_deadline, status)
+                            SELECT id, name, fee, tier_deadline, absolute_deadline, status
+                            FROM festivals_legacy""")
+            conn.execute("DROP TABLE festivals_legacy")
         conn.commit()
 
-def insert_festival(festival: dict, db_path: Path | str = DEFAULT_DB_PATH) -> None:
-    """Inserts a festival record into the database securely using parameters."""
+def insert_festival(festival: dict, db_path: Path | str = DEFAULT_DB_PATH) -> str:
+    """Refresh known metadata while preserving submission status and unknown fields."""
     with get_connection(db_path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        existing = conn.execute("SELECT id FROM festivals WHERE name = ?",
+                                (festival["name"],)).fetchone()
         conn.execute(
             """
-            INSERT OR IGNORE INTO festivals (name, fee, tier_deadline, absolute_deadline, status)
+            INSERT INTO festivals (name, fee, tier_deadline, absolute_deadline, status)
             VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                fee = COALESCE(excluded.fee, festivals.fee),
+                tier_deadline = CASE WHEN excluded.tier_deadline = 'TBD'
+                    THEN festivals.tier_deadline ELSE excluded.tier_deadline END,
+                absolute_deadline = CASE WHEN excluded.absolute_deadline = 'TBD'
+                    THEN festivals.absolute_deadline ELSE excluded.absolute_deadline END
             """,
-            (
-                festival["name"],
-                festival["fee"],
-                festival["tier_deadline"],
-                festival["absolute_deadline"],
-                festival.get("status", "Unapplied")
-            )
+            (festival["name"], festival.get("fee"), festival["tier_deadline"],
+             festival["absolute_deadline"], festival.get("status", "Unapplied")),
         )
         conn.commit()
+    return "updated" if existing else "inserted"
 
 def get_all_festivals(db_path: Path | str = DEFAULT_DB_PATH) -> list[dict]:
     """Retrieves all festival records from the database as dictionaries."""
