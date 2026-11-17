@@ -6,8 +6,18 @@ readme = "README.md"
 authors = [
     { name = "Viktorija Blumberga", email = "vblumberga@gmail.com" }
 ]
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "bs4>=0.0.2",
+    "fastapi>=0.143.0",
+    "httpx2>=2.13.1",
+    "pandas>=3.0.6",
+    "pip>=26.2.1",
+    "playwright>=1.63.0",
+    "pydantic>=2.14.0",
+    "streamlit>=1.65.0",
+    "uvicorn>=0.54.0",
+]
 
 [project.scripts]
 festtrackai = "festtrackai:main"
@@ -15,3 +25,11 @@ festtrackai = "festtrackai:main"
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

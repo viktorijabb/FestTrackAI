@@ -1,0 +1,47 @@
+services:
+  # FestTrackAI Application (FastAPI Webhook + Streamlit UI)
+  app:
+    build: .
+    container_name: festtrackai_app
+    ports:
+      - "8000:8000"  # FastAPI Webhook API
+      - "8501:8501"  # Streamlit Dashboard
+    command: >
+      sh -c "uv run uvicorn festtrackai.main:app --host 0.0.0.0 --port 8000 --reload &
+             uv run streamlit run src/festtrackai/app.py --server.address=0.0.0.0 --server.port=8501"
+    volumes:
+      - .:/app  # Mount project directory so code and SQLite DB persist correctly
+      - /app/.venv
+    environment:
+      - PYTHONPATH=/app/src
+    restart: unless-stopped
+
+  # n8n Automation Engine
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: festtrackai_n8n
+    ports:
+      - "5678:5678"  # n8n Web UI
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+  # Ollama AI
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+  ollama_data:
