@@ -1,0 +1,109 @@
+{
+  "name": "FestTrackAI",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -80
+      ],
+      "id": "9e44af57-4440-472d-90ae-02919fd49ff4",
+      "name": "Trigger"
+    },
+    {
+      "parameters": {
+        "apiUrl": "https://filmfreeway.com/festivals",
+        "apiOptionalParameters": {
+          "apiAutoparse": false,
+          "apiRender": true
+        }
+      },
+      "type": "n8n-nodes-scraperapi-official.scraperApi",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -80
+      ],
+      "id": "3e3474d8-d0f9-4a63-919a-4a15dce2c55c",
+      "name": "Scrape"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://app:8000/api/v1/festivals/ingest-html",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/html",
+        "body": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        -80
+      ],
+      "id": "f3e9b1d5-db7d-41fc-998f-d3270ebeb61a",
+      "name": "Send"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map((item, index) => {\n  const candidates = [item.json.body, item.json.data, item.json.html,\n    item.json.data?.body, item.json.data?.html];\n  const html = candidates.find(value => typeof value === 'string' && /<[a-z!]/i.test(value));\n  if (!html) {\n    throw new Error('Scrape did not return raw HTML. Disable autoparse and inspect Scrape output fields (body/data/html).');\n  }\n  return { json: { html }, pairedItem: { item: index } };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        430,
+        -80
+      ],
+      "id": "preserve-raw-html",
+      "name": "Relay HTML"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Scrape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape": {
+      "main": [
+        [
+          {
+            "node": "Relay HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Relay HTML": {
+      "main": [
+        [
+          {
+            "node": "Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}

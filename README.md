@@ -30,18 +30,14 @@ rather than in visual workflow nodes.
 
 ```text
 FestTrackAI/
-├── src/
-│   └── festtrackai/
-│       ├── api/
-│       │   └── routers/
-│       │       └── festivals.py  # FastAPI ingestion endpoint
-│       ├── db/
-│       │   └── database.py       # SQLite schema & persistence helpers
-│       ├── models/
-│       │   └── festival.py       # Pydantic validation models
-│       └── scraper/
-│           └── parser.py         # JSON-LD HTML parser service
-├── app.py                        # Streamlit dashboard UI
+├── src/festtrackai/
+│   ├── main.py              # FastAPI app and database initialization
+│   ├── api/routes.py        # Raw HTML ingestion endpoint
+│   ├── db/database.py       # SQLite initialization, migration and upserts
+│   ├── models/festival.py   # Pydantic validation
+│   ├── scraper/parser.py    # JSON-LD extraction
+│   └── app.py               # Streamlit table launched by Compose
+├── workflows/festtrackai.json
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -58,3 +54,83 @@ FestTrackAI/
 2. **Access Endpoints**:
     * **FastAPI Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
     * **Streamlit Dashboard**: [http://localhost:8501](http://localhost:8501)
+
+
+## n8n HTML relay
+
+Import `workflows/festtrackai.json` into n8n, select your existing ScraperAPI
+credential on **Scrape**, and execute the manual trigger. The export intentionally
+contains no credential references. It requires the same ScraperAPI community node
+used by the previous workflow.
+
+The flow is **Trigger → Scrape → Relay HTML → Send**. ScraperAPI rendering remains
+on; autoparse is off because Python needs raw HTML. Relay HTML selects an HTML
+string from `body`, `data`, `html`, `data.body`, or `data.html` without stripping
+scripts or truncating the page. It stops with an actionable error if none exists.
+If your community-node version uses a different envelope, inspect Scrape's output
+and adjust only that field selection. Festival extraction stays in Python.
+
+Send uses raw `text/html` and the exported expression `={{ $json.html }}`. The
+leading `=` is required in exported n8n JSON; without it a template can be sent
+literally. No LLM or item limit is needed: one HTML item can contain many festivals.
+`http://app:8000` resolves between services in this Compose project. For n8n
+running elsewhere, configure a reachable API address instead.
+
+A 400 response means the HTML is empty, incorrectly forwarded, malformed, or
+lacks the expected festival ItemList. Inspect Scrape output for a challenge/login
+page. A parser change cannot restore metadata absent from the scraped response.
+
+## Data semantics and repeat ingestion
+
+The parser reads JSON-LD scripts regardless of attribute order, quote style, or
+case, scans multiple scripts, and supports arrays, `@graph`, direct ItemList entries,
+and local `@id` references. It rejects malformed or unresolved metadata instead of
+silently reporting an incomplete import as successful.
+
+FilmFreeway's directory metadata supplies festival names and **event dates**.
+It does not establish submission fees or submission deadlines. Missing fees are
+stored as SQL NULL (`None` in Python), not zero; missing submission deadlines are
+`TBD`. `startDate` and ticket `offers.price` are deliberately not used for these
+submission fields. Only explicit `fee` (USD), `tier_deadline`, and
+`absolute_deadline` fields are mapped when supplied. Fetching festival detail pages
+and extracting category-specific submission tiers is separate work.
+
+On startup, FastAPI and Streamlit initialize the database. An automatic transaction
+migrates the original NOT NULL fee column to nullable while retaining existing
+IDs, names, fees, deadlines, and application statuses. Existing legacy zero fees
+and dates cannot reliably be distinguished from genuine values and are retained;
+review them rather than assuming this migration corrected historical data. Back
+up `festivals.db` before upgrading; stop old app processes while migrating.
+
+Re-ingestion matches the existing unique festival name, refreshes known fee and
+deadline values, and preserves status and previously known fields when a new
+listing supplies unknown values. This remains name-based identity: renames and
+different festivals with identical names require a future stable source-ID model.
+
+Responses distinguish `inserted_records` and `updated_records`; `saved_records`
+is their sum (successful persistence operations, not necessarily changed values).
+Mixed valid/invalid batches report `partial_success` and per-record validation
+errors. All-invalid batches return 422; storage failures return 500 rather than a
+misleading success. Earlier records may already be committed if storage fails
+mid-batch; retrying is safe for festival identity and preserves application status.
+
+Ollama is optional under the `ai` Compose profile and does not start by default:
+`docker compose --profile ai up -d ollama`. The ingestion flow needs no local model.
+The 3.8 GiB target has not been measured or enforced with container memory limits.
+
+## Validation
+
+With project dependencies installed:
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -p 'test_ingestion_regressions.py' -v
+node --test tests/workflows/test_relay.cjs
+uv run pytest
+```
+
+The first command uses Python's standard-library test runner. The Node tests
+execute the exported relay code and body expression against representative scraper
+envelopes; they do not launch a real n8n instance or call paid ScraperAPI endpoints.
+The webhook tests use temporary databases and FastAPI's TestClient. The live
+FilmFreeway listing checked during this fix contained 50 festival records; its
+JSON-LD passed ingestion and repeat ingestion locally, with fees/deadlines unknown.

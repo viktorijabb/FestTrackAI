@@ -1,9 +1,12 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
 
 class Festival(BaseModel):
-    """Pydantic validation model for a festival record with tiered and absolute deadlines."""
-    name: str = Field(..., min_length=1, description="Name of the film festival")
-    fee: float = Field(..., ge=0.0, description="Submission fee in USD")
-    tier_deadline: str = Field(..., description="Deadline for the current fee tier / early bird")
-    absolute_deadline: str = Field(..., description="Final absolute submission deadline")
-    status: str = Field(default="Unapplied", description="Current application status")
+    """Submission metadata; None means fee unknown, zero means explicitly free."""
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(..., min_length=1)
+    fee: float | None = Field(default=None, ge=0.0, allow_inf_nan=False,
+                              description="Submission fee in USD; null when unknown")
+    tier_deadline: str = Field(default="TBD", min_length=1)
+    absolute_deadline: str = Field(default="TBD", min_length=1)
+    status: str = "Unapplied"

@@ -43,4 +43,4 @@ RUN uv run playwright install chromium --with-deps
 EXPOSE 8000 8501
 
 # Default command launches the FastAPI backend and Streamlit dashboard concurrently
-CMD ["sh", "-c", "uv run uvicorn festtrackai.api.routes:app --host 0.0.0.0 --port 8000 & uv run streamlit run src/festtrackai/ui/dashboard.py --server.port 8501 --server.address 0.0.0.0"]
+CMD ["sh", "-c", "uv run uvicorn festtrackai.main:app --host 0.0.0.0 --port 8000 & uv run streamlit run src/festtrackai/app.py --server.port 8501 --server.address 0.0.0.0"]

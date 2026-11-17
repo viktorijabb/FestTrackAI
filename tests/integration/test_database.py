@@ -1,10 +1,10 @@
 # tests/integration/test_database.py
 from pathlib import Path
-from festtrackai.db.database import insert_festival, get_all_festivals
+from festtrackai.db.database import insert_festival, get_all_festivals, init_db
 
 def test_insert_and_get_festival(tmp_path: Path):
     db_path = tmp_path / "test_festivals.db"
-    # init_db(db_path=db_path)
+    init_db(db_path=db_path)
 
     festival = {
         "name": "IndieLeeds Film Fest",
