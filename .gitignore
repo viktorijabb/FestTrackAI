@@ -35,3 +35,6 @@ ollama_data/
 
 # AI
 .gemini
+
+# Private FilmFreeway browser state: never commit or bake into images.
+.filmfreeway/

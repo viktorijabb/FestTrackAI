@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from festtrackai.ui.account import account_panel
 from festtrackai.db.database import init_db, get_all_festivals, update_festival_status, insert_festival
 from festtrackai.scraper.crawler import fetch_filmfreeway_festivals
 
@@ -12,6 +13,8 @@ st.set_page_config(
 )
 
 st.title("🎬 FestTrackAI - Film Festival Tracker")
+account_panel()
+st.divider()
 st.markdown("Monitor submission deadlines and track affordable film festivals effortlessly.")
 
 # --- SIDEBAR CONTROLS ---
