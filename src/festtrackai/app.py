@@ -2,6 +2,7 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 from festtrackai.db.database import init_db
+from festtrackai.ui.account import account_panel
 
 def load_festival_data():
     # Connect to the local SQLite database mapped in Docker
@@ -14,6 +15,9 @@ def load_festival_data():
 
 init_db()
 st.title("FestTrackAI Dashboard")
+account_panel()
+st.divider()
+st.subheader("Tracked festival records")
 st.caption("Unknown fees are blank; TBD deadlines have not been extracted. Existing legacy values are retained.")
 df_festivals = load_festival_data()
 

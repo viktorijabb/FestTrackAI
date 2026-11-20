@@ -134,3 +134,67 @@ envelopes; they do not launch a real n8n instance or call paid ScraperAPI endpoi
 The webhook tests use temporary databases and FastAPI's TestClient. The live
 FilmFreeway listing checked during this fix contained 50 festival records; its
 JSON-LD passed ingestion and repeat ingestion locally, with fees/deadlines unknown.
+
+## FilmFreeway login and Gold submission prices
+
+This is a **single-user local installation**. The app ports are bound to localhost;
+do not expose this shared account session as a multi-user service.
+
+1. On your desktop, from the project root (outside Docker), run:
+   ```bash
+   uv sync
+   uv run playwright install chromium
+   uv run python -m festtrackai.filmfreeway.account login --membership gold
+   ```
+   Use `--membership standard` for a non-Gold account. Membership is explicitly
+   **user-confirmed**, not automatically verified. The public Gold festival badge
+   and the presence of a Gold fee do not prove the account is a Gold member.
+2. A visible browser opens FilmFreeway. Enter your credentials and complete any
+   verification there. FestTrackAI never asks for or stores your password. The
+   helper checks FilmFreeway's explicit sign-in marker on a fresh page, saves the
+   session, and closes the browser. Closing it yourself cancels login; timeout is
+   five minutes. Some identity providers may refuse automated Chromium; use a
+   FilmFreeway-supported login method rather than bypassing account protections.
+3. In Streamlit, open **FilmFreeway account & submission prices**, click **Check
+   connection**, paste a festival profile URL, and **Refresh account prices**.
+   When Streamlit runs directly on your desktop, **Sign in to FilmFreeway** launches
+   the same helper. Docker cannot open a desktop window, so it displays the command.
+   The existing project bind mount shares the session with the app container;
+   the n8n container does not receive it.
+4. Current category fees show Standard, Gold, the selected price and its basis,
+   deadline when available, source URL, and fetch time. The budget filter uses the
+   selected price. Gold uses the actual published Gold amount; no fixed discount
+   is invented. Missing Gold prices fall back to Standard. Only verified USD
+   metadata is used for numeric USD prices; other currencies remain visible as
+   published text and are excluded from the USD budget filter.
+
+Session state is in `.filmfreeway/session.json` (directory mode 0700, file mode
+0600), excluded from Git and Docker builds. Only FilmFreeway cookies and origins
+are saved, not Google or other provider sessions. This is a bearer credential:
+do not upload, share, or copy it into n8n, Firecrawl, or ScraperAPI. The account
+fetcher uses local Playwright directly, validates profile URLs, and checks sign-in
+on every fetch. An expired session stops with a reconnect message instead of
+silently returning anonymous prices.
+
+**Disconnect FilmFreeway** (or
+`uv run python -m festtrackai.filmfreeway.account disconnect`) removes local state
+and clears displayed account prices on the next dashboard interaction. It does
+not revoke sessions on FilmFreeway. Close any separately launched login helper
+before disconnecting. Reconnect to switch accounts or update your confirmed
+membership.
+
+Prices stay in the current Streamlit session and do not overwrite the shared
+SQLite listing fee. Refresh snapshots after membership, category, deadline, or
+festival changes. The directory ingest remains an anonymous HTML relay. This
+feature does not submit films or buy membership, and it does not bulk-fetch every
+festival: paste a profile URL into the account pricing panel.
+
+Validation command:
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -p 'test_filmfreeway_account.py' -v
+```
+The parser was exercised against a public festival page with 11 current categories.
+The regression fixture below is a minimal public fee-table excerpt; session tests
+use synthetic state. The execution environment disconnected before the new test
+suite could run. A real signed-in Gold account, browser login, and Streamlit flow
+still require local end-to-end verification.
